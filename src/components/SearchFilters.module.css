@@ -1,0 +1,197 @@
+.panel {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: slideDown 0.18s ease;
+  transform-origin: top;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+.section {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  padding-top: 5px;
+  min-width: 80px;
+}
+
+/* Generation pills */
+.pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.pill:hover { border-color: var(--blue); color: var(--text); }
+
+.pillActive {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+/* Type pills */
+.types {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.typePill {
+  background: var(--type-alpha);
+  border: 1px solid var(--type-color);
+  color: var(--type-color);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  opacity: 0.75;
+}
+
+.typePill:hover { opacity: 1; }
+
+.typePillActive {
+  background: var(--type-color) !important;
+  color: #fff !important;
+  opacity: 1;
+}
+
+/* Ability */
+.abilityRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.abilityWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.abilityInput {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 32px 5px 14px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 220px;
+  transition: border-color 0.2s;
+}
+
+.abilityInput:focus { border-color: var(--blue); }
+.abilityActive { border-color: var(--blue); }
+.abilityInput::placeholder { color: var(--text-muted); }
+
+.clearAbility {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+  line-height: 1;
+}
+.clearAbility:hover { color: var(--text); }
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  list-style: none;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  min-width: 220px;
+}
+
+.suggestion {
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  text-transform: capitalize;
+  transition: background 0.1s;
+}
+
+.suggestion:hover, .suggestionActive { background: var(--card); }
+
+.activePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px 3px 12px;
+  border-radius: 20px;
+  text-transform: capitalize;
+}
+
+.activePill button {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  line-height: 1;
+}
+.activePill button:hover { color: #fff; }
+
+.clearAll {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.clearAll:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
