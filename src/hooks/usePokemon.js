@@ -76,6 +76,38 @@ function fetchPrimaryTypeMap() {
   return primaryTypePromise
 }
 
+function groupAlternatesWithBase(sorted) {
+  const baseNames = new Set(sorted.filter(p => p.id < 10000).map(p => p.name))
+  const altsByBase = {}
+  const bases = []
+
+  for (const p of sorted) {
+    if (p.id < 10000) {
+      bases.push(p)
+    } else {
+      const parts = p.name.split('-')
+      let found = null
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const candidate = parts.slice(0, i).join('-')
+        if (baseNames.has(candidate)) { found = candidate; break }
+      }
+      if (found) {
+        if (!altsByBase[found]) altsByBase[found] = []
+        altsByBase[found].push(p)
+      } else {
+        bases.push(p)
+      }
+    }
+  }
+
+  const result = []
+  for (const base of bases) {
+    result.push(base)
+    if (altsByBase[base.name]) result.push(...altsByBase[base.name])
+  }
+  return result
+}
+
 async function fetchSortedNames(sortBy) {
   if (sortedNamesCache.has(sortBy)) return sortedNamesCache.get(sortBy)
   const allNames = await fetchAllNames()
@@ -95,8 +127,9 @@ async function fetchSortedNames(sortBy) {
     }
     default: sorted = [...allNames].sort((a, b) => a.id - b.id)
   }
-  sortedNamesCache.set(sortBy, sorted)
-  return sorted
+  const grouped = groupAlternatesWithBase(sorted)
+  sortedNamesCache.set(sortBy, grouped)
+  return grouped
 }
 
 function fetchTypePokemon(typeName) {
@@ -159,17 +192,10 @@ export function useInfinitePokemon(sortBy = 'id-asc') {
   const loadMore = useCallback(async () => {
     if (loadingMore) return
     setLoadingMore(true)
-    if (sortBy === 'id-asc') {
-      const data = await fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=${offsetRef.current}`).then(r => r.json())
-      setTotal(data.count)
-      const details = await Promise.all(data.results.map(p => fetch(p.url).then(r => r.json())))
-      setPokemon(prev => [...prev, ...details])
-    } else {
-      const sorted = await fetchSortedNames(sortBy)
-      const page = sorted.slice(offsetRef.current, offsetRef.current + LIMIT)
-      const details = await Promise.all(page.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json())))
-      setPokemon(prev => [...prev, ...details])
-    }
+    const sorted = await fetchSortedNames(sortBy)
+    const page = sorted.slice(offsetRef.current, offsetRef.current + LIMIT)
+    const details = await Promise.all(page.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json())))
+    setPokemon(prev => [...prev, ...details])
     offsetRef.current += LIMIT
     setLoadingMore(false)
   }, [loadingMore, sortBy])
@@ -180,12 +206,7 @@ export function useInfinitePokemon(sortBy = 'id-asc') {
     setLoading(true)
 
     const init = async () => {
-      if (sortBy === 'id-asc') {
-        const data = await fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=0`).then(r => r.json())
-        setTotal(data.count)
-        const details = await Promise.all(data.results.map(p => fetch(p.url).then(r => r.json())))
-        setPokemon(details)
-      } else {
+      {
         const sorted = await fetchSortedNames(sortBy)
         setTotal(sorted.length)
         const page = sorted.slice(0, LIMIT)

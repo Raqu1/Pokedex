@@ -63,6 +63,7 @@ export default function App() {
 
   return (
     <div className={styles.app}>
+      <div className={styles.stickyTop}>
       <header className={styles.header}>
         <div className={styles.logo}>
           <h1>Pokédex</h1>
@@ -122,6 +123,7 @@ export default function App() {
           weightRange={weightRange} setWeightRange={setWeightRange}
         />
       )}
+      </div>
 
       <main className={styles.main}>
         {hasFilter && !filterLoading && (
