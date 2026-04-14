@@ -137,13 +137,14 @@ export function useAbilityList() {
 
 // ─── Advanced search (name partial match + generation + ability) ───────────────
 
-export function useAdvancedSearch({ query, generation, ability, types, megaOnly }) {
+export function useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [total, setTotal] = useState(0)
 
   const typesKey = types.join(',')
-  const hasFilter = Boolean(query.trim() || generation || ability || types.length > 0 || megaOnly)
+  const hasWeightFilter = weightRange[0] > 0 || weightRange[1] < 1000
+  const hasFilter = Boolean(query.trim() || generation || ability || types.length > 0 || megaOnly || hasWeightFilter)
 
   useEffect(() => {
     if (!hasFilter) {
@@ -165,7 +166,14 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly 
 
         if (generation) {
           const [min, max] = GENERATION_RANGES[generation]
-          filtered = filtered.filter(p => p.id >= min && p.id <= max)
+          filtered = filtered.filter(p => {
+            if (p.id > 10000) {
+              const baseName = p.name.split('-mega')[0]
+              const base = allNames.find(b => b.name === baseName)
+              return base ? base.id >= min && base.id <= max : false
+            }
+            return p.id >= min && p.id <= max
+          })
         }
 
         if (megaOnly) {
@@ -194,11 +202,12 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly 
           filtered = filtered.filter(p => unionSet.has(p.name))
         }
 
-        setTotal(filtered.length)
-        const top = filtered.slice(0, 40)
+        const sampleSize = hasWeightFilter ? 200 : 40
+        const top = filtered.slice(0, sampleSize)
 
         if (top.length === 0) {
           setResults([])
+          setTotal(0)
           setLoading(false)
           return
         }
@@ -206,7 +215,16 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly 
         const details = await Promise.all(
           top.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
         )
-        setResults(details)
+
+        const finalResults = hasWeightFilter
+          ? details.filter(p => {
+              const kg = p.weight / 10
+              return kg >= weightRange[0] && kg <= weightRange[1]
+            })
+          : details
+
+        setTotal(hasWeightFilter ? finalResults.length : filtered.length)
+        setResults(finalResults)
       } catch {
         setResults([])
       }
@@ -214,7 +232,7 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly 
     }, query.trim() && !generation && !ability && types.length === 0 && !megaOnly ? 350 : 0)
 
     return () => clearTimeout(timer)
-  }, [query, generation, ability, typesKey, megaOnly, hasFilter])
+  }, [query, generation, ability, typesKey, megaOnly, hasWeightFilter, weightRange, hasFilter])
 
   return { results, loading, total, hasFilter }
 }

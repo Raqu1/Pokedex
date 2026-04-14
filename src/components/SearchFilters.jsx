@@ -18,7 +18,9 @@ const TYPE_LABELS = {
 
 const TYPES = Object.keys(TYPE_LABELS)
 
-export default function SearchFilters({ generation, setGeneration, types, toggleType, megaOnly, setMegaOnly, ability, setAbility, abilities }) {
+const MAX_WEIGHT = 1000
+
+export default function SearchFilters({ generation, setGeneration, types, toggleType, megaOnly, setMegaOnly, ability, setAbility, abilities, weightRange, setWeightRange }) {
   const [abilityInput, setAbilityInput] = useState(ability)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const abilityWrapRef = useRef(null)
@@ -46,7 +48,11 @@ export default function SearchFilters({ generation, setGeneration, types, toggle
 
   const clearAbility = () => { setAbility(''); setAbilityInput('') }
 
-  const activeCount = [generation, megaOnly, ability].filter(Boolean).length + types.length
+  const activeCount = [generation, megaOnly, ability].filter(Boolean).length + types.length + (weightRange[0] > 0 || weightRange[1] < MAX_WEIGHT ? 1 : 0)
+
+  const fillLeft = (weightRange[0] / MAX_WEIGHT) * 100
+  const fillRight = (weightRange[1] / MAX_WEIGHT) * 100
+  const trackFill = `linear-gradient(to right, var(--border) ${fillLeft}%, var(--blue) ${fillLeft}%, var(--blue) ${fillRight}%, var(--border) ${fillRight}%)`
 
   return (
     <div className={styles.panel}>
@@ -136,10 +142,39 @@ export default function SearchFilters({ generation, setGeneration, types, toggle
         </div>
       </section>
 
+      {/* Weight */}
+      <section className={styles.section}>
+        <span className={styles.sectionLabel}>Peso</span>
+        <div className={styles.weightWrap}>
+          <div className={styles.sliderTrack} style={{ background: trackFill }}>
+            <input
+              type="range" min={0} max={MAX_WEIGHT} step={5}
+              value={weightRange[0]}
+              onChange={e => {
+                const val = Math.min(Number(e.target.value), weightRange[1] - 5)
+                setWeightRange([val, weightRange[1]])
+              }}
+            />
+            <input
+              type="range" min={0} max={MAX_WEIGHT} step={5}
+              value={weightRange[1]}
+              onChange={e => {
+                const val = Math.max(Number(e.target.value), weightRange[0] + 5)
+                setWeightRange([weightRange[0], val])
+              }}
+            />
+          </div>
+          <div className={styles.weightLabels}>
+            <span>{weightRange[0]} kg</span>
+            <span>{weightRange[1] >= MAX_WEIGHT ? `${MAX_WEIGHT}+ kg` : `${weightRange[1]} kg`}</span>
+          </div>
+        </div>
+      </section>
+
       {activeCount > 0 && (
         <button
           className={styles.clearAll}
-          onClick={() => { setGeneration(null); TYPES.forEach(t => types.includes(t) && toggleType(t)); setMegaOnly(false); clearAbility() }}
+          onClick={() => { setGeneration(null); TYPES.forEach(t => types.includes(t) && toggleType(t)); setMegaOnly(false); clearAbility(); setWeightRange([0, MAX_WEIGHT]) }}
         >
           Limpiar filtros
         </button>
