@@ -23,6 +23,7 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [sortBy, setSortBy] = useState('id-asc')
 
   const toggleType = t => setTypes(prev =>
     prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
@@ -34,13 +35,26 @@ export default function App() {
   const { results: filteredResults, loading: filterLoading, total: filterTotal, hasFilter } =
     useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange })
 
-  const { pokemon: pagedPokemon, total, loading: pagedLoading } = usePokemonList(page * LIMIT)
+  const { pokemon: pagedPokemon, total, loading: pagedLoading } = usePokemonList(page * LIMIT, sortBy)
 
   const { pokemon: allPokemon, total: allTotal, loading: allLoading, loadingMore, hasMore, loadMore } =
-    useInfinitePokemon()
+    useInfinitePokemon(sortBy)
 
   const loading = hasFilter ? filterLoading : showAll ? allLoading : pagedLoading
   const displayList = hasFilter ? filteredResults : showAll ? allPokemon : pagedPokemon
+
+  // En modo filtro el orden se aplica client-side (ya tenemos todos los resultados).
+  // En modo paginado/infinito el orden viene pre-aplicado desde el hook.
+  const sortedList = hasFilter ? (() => {
+    const list = [...displayList]
+    switch (sortBy) {
+      case 'name-asc':  return list.sort((a, b) => a.name.localeCompare(b.name))
+      case 'name-desc': return list.sort((a, b) => b.name.localeCompare(a.name))
+      case 'type':      return list.sort((a, b) => a.types[0].type.name.localeCompare(b.types[0].type.name))
+      case 'id-desc':   return list.sort((a, b) => b.id - a.id)
+      default:          return list.sort((a, b) => a.id - b.id)
+    }
+  })() : displayList
   const totalPages = Math.ceil(total / LIMIT)
   const activeFilterCount = [generation, megaOnly, ability].filter(Boolean).length + types.length + (weightRange[0] > 0 || weightRange[1] < 1000 ? 1 : 0)
 
@@ -92,6 +106,23 @@ export default function App() {
           )}
         </button>
 
+        <div className={styles.sortWrap}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18M7 12h10M11 18h2"/>
+          </svg>
+          <select
+            className={styles.sortSelect}
+            value={sortBy}
+            onChange={e => { setSortBy(e.target.value); setPage(0) }}
+          >
+            <option value="id-asc">Gen I → IX</option>
+            <option value="id-desc">Gen IX → I</option>
+            <option value="name-asc">Nombre A → Z</option>
+            <option value="name-desc">Nombre Z → A</option>
+            <option value="type">Por tipo</option>
+          </select>
+        </div>
+
         {!hasFilter && (
           <button
             className={`${styles.toggleBtn} ${showAll ? styles.toggleActive : ''}`}
@@ -134,7 +165,7 @@ export default function App() {
           </div>
         ) : (
           <div className={styles.grid}>
-            {displayList.map(p => (
+            {sortedList.map(p => (
               <PokemonCard key={p.id} pokemon={p} onClick={setSelected} />
             ))}
           </div>

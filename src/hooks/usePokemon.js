@@ -21,6 +21,12 @@ let namePromise = null
 let abilityCache = null
 let abilityPromise = null
 const typeCache = new Map()
+let primaryTypeCache = null
+let primaryTypePromise = null
+const sortedNamesCache = new Map()
+
+const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison',
+  'ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy']
 
 function fetchAllNames() {
   if (nameCache) return Promise.resolve(nameCache)
@@ -51,6 +57,48 @@ function fetchAbilities() {
   return abilityPromise
 }
 
+function fetchPrimaryTypeMap() {
+  if (primaryTypeCache) return Promise.resolve(primaryTypeCache)
+  if (!primaryTypePromise) {
+    primaryTypePromise = Promise.all(
+      ALL_TYPES.map(t => fetch(`${BASE_URL}/type/${t}`).then(r => r.json()))
+    ).then(results => {
+      const map = {}
+      results.forEach((data, i) => {
+        data.pokemon.forEach(({ pokemon, slot }) => {
+          if (slot === 1) map[pokemon.name] = ALL_TYPES[i]
+        })
+      })
+      primaryTypeCache = map
+      return map
+    })
+  }
+  return primaryTypePromise
+}
+
+async function fetchSortedNames(sortBy) {
+  if (sortedNamesCache.has(sortBy)) return sortedNamesCache.get(sortBy)
+  const allNames = await fetchAllNames()
+  let sorted
+  switch (sortBy) {
+    case 'name-asc':  sorted = [...allNames].sort((a, b) => a.name.localeCompare(b.name)); break
+    case 'name-desc': sorted = [...allNames].sort((a, b) => b.name.localeCompare(a.name)); break
+    case 'id-desc':   sorted = [...allNames].sort((a, b) => b.id - a.id); break
+    case 'type': {
+      const typeMap = await fetchPrimaryTypeMap()
+      sorted = [...allNames].sort((a, b) => {
+        const ta = typeMap[a.name] ?? 'zzz'
+        const tb = typeMap[b.name] ?? 'zzz'
+        return ta.localeCompare(tb) || a.id - b.id
+      })
+      break
+    }
+    default: sorted = [...allNames].sort((a, b) => a.id - b.id)
+  }
+  sortedNamesCache.set(sortBy, sorted)
+  return sorted
+}
+
 function fetchTypePokemon(typeName) {
   if (typeCache.has(typeName)) return Promise.resolve(typeCache.get(typeName))
   return fetch(`${BASE_URL}/type/${typeName}`)
@@ -64,31 +112,43 @@ function fetchTypePokemon(typeName) {
 
 // ─── Paginated list ────────────────────────────────────────────────────────────
 
-export function usePokemonList(offset = 0) {
+export function usePokemonList(offset = 0, sortBy = 'id-asc') {
   const [pokemon, setPokemon] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=${offset}`)
-      .then(r => r.json())
-      .then(async data => {
-        setTotal(data.count)
+    if (sortBy === 'id-asc') {
+      fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=${offset}`)
+        .then(r => r.json())
+        .then(async data => {
+          setTotal(data.count)
+          const details = await Promise.all(
+            data.results.map(p => fetch(p.url).then(r => r.json()))
+          )
+          setPokemon(details)
+          setLoading(false)
+        })
+    } else {
+      fetchSortedNames(sortBy).then(async sorted => {
+        setTotal(sorted.length)
+        const page = sorted.slice(offset, offset + LIMIT)
         const details = await Promise.all(
-          data.results.map(p => fetch(p.url).then(r => r.json()))
+          page.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
         )
         setPokemon(details)
         setLoading(false)
       })
-  }, [offset])
+    }
+  }, [offset, sortBy])
 
   return { pokemon, total, loading }
 }
 
 // ─── Infinite scroll ───────────────────────────────────────────────────────────
 
-export function useInfinitePokemon() {
+export function useInfinitePokemon(sortBy = 'id-asc') {
   const [pokemon, setPokemon] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -99,25 +159,44 @@ export function useInfinitePokemon() {
   const loadMore = useCallback(async () => {
     if (loadingMore) return
     setLoadingMore(true)
-    const data = await fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=${offsetRef.current}`).then(r => r.json())
-    setTotal(data.count)
-    const details = await Promise.all(data.results.map(p => fetch(p.url).then(r => r.json())))
-    setPokemon(prev => [...prev, ...details])
+    if (sortBy === 'id-asc') {
+      const data = await fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=${offsetRef.current}`).then(r => r.json())
+      setTotal(data.count)
+      const details = await Promise.all(data.results.map(p => fetch(p.url).then(r => r.json())))
+      setPokemon(prev => [...prev, ...details])
+    } else {
+      const sorted = await fetchSortedNames(sortBy)
+      const page = sorted.slice(offsetRef.current, offsetRef.current + LIMIT)
+      const details = await Promise.all(page.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json())))
+      setPokemon(prev => [...prev, ...details])
+    }
     offsetRef.current += LIMIT
     setLoadingMore(false)
-  }, [loadingMore])
+  }, [loadingMore, sortBy])
 
   useEffect(() => {
-    fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=0`)
-      .then(r => r.json())
-      .then(async data => {
+    setPokemon([])
+    offsetRef.current = 0
+    setLoading(true)
+
+    const init = async () => {
+      if (sortBy === 'id-asc') {
+        const data = await fetch(`${BASE_URL}/pokemon?limit=${LIMIT}&offset=0`).then(r => r.json())
         setTotal(data.count)
         const details = await Promise.all(data.results.map(p => fetch(p.url).then(r => r.json())))
         setPokemon(details)
-        offsetRef.current = LIMIT
-        setLoading(false)
-      })
-  }, [])
+      } else {
+        const sorted = await fetchSortedNames(sortBy)
+        setTotal(sorted.length)
+        const page = sorted.slice(0, LIMIT)
+        const details = await Promise.all(page.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json())))
+        setPokemon(details)
+      }
+      offsetRef.current = LIMIT
+      setLoading(false)
+    }
+    init()
+  }, [sortBy])
 
   return { pokemon, total, loading, loadingMore, hasMore, loadMore }
 }
