@@ -25,12 +25,6 @@
   flex-shrink: 0;
 }
 
-.pokeball {
-  font-size: 24px;
-  color: var(--red);
-  line-height: 1;
-}
-
 .logo h1 {
   font-size: 22px;
   font-weight: 800;
@@ -49,19 +43,12 @@
   align-items: center;
 }
 
-.searchIcon {
-  position: absolute;
-  left: 14px;
-  font-size: 16px;
-  pointer-events: none;
-}
-
 .search {
   width: 100%;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 50px;
-  padding: 10px 40px 10px 42px;
+  padding: 10px 40px 10px 16px;
   color: var(--text);
   font-size: 14px;
   font-family: inherit;

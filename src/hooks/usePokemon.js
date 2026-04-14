@@ -137,13 +137,13 @@ export function useAbilityList() {
 
 // ─── Advanced search (name partial match + generation + ability) ───────────────
 
-export function useAdvancedSearch({ query, generation, ability, type }) {
+export function useAdvancedSearch({ query, generation, ability, types, megaOnly }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [total, setTotal] = useState(0)
-  const abortRef = useRef(null)
 
-  const hasFilter = Boolean(query.trim() || generation || ability || type)
+  const typesKey = types.join(',')
+  const hasFilter = Boolean(query.trim() || generation || ability || types.length > 0 || megaOnly)
 
   useEffect(() => {
     if (!hasFilter) {
@@ -152,11 +152,8 @@ export function useAdvancedSearch({ query, generation, ability, type }) {
       return
     }
 
-    // Debounce name typing
     const timer = setTimeout(async () => {
-      if (abortRef.current) abortRef.current = false
       setLoading(true)
-
       try {
         const allNames = await fetchAllNames()
         let filtered = allNames
@@ -171,6 +168,10 @@ export function useAdvancedSearch({ query, generation, ability, type }) {
           filtered = filtered.filter(p => p.id >= min && p.id <= max)
         }
 
+        if (megaOnly) {
+          filtered = filtered.filter(p => p.name.includes('-mega'))
+        }
+
         if (ability) {
           const res = await fetch(`${BASE_URL}/ability/${ability}`)
           const data = await res.json()
@@ -178,9 +179,19 @@ export function useAdvancedSearch({ query, generation, ability, type }) {
           filtered = filtered.filter(p => abilitySet.has(p.name))
         }
 
-        if (type) {
-          const typeSet = await fetchTypePokemon(type)
+        if (types.length === 1) {
+          // 1 tipo: todos los que lo tengan
+          const typeSet = await fetchTypePokemon(types[0])
           filtered = filtered.filter(p => typeSet.has(p.name))
+        } else if (types.length === 2) {
+          // 2 tipos: solo los que tengan AMBOS a la vez (intersección)
+          const [setA, setB] = await Promise.all(types.map(fetchTypePokemon))
+          filtered = filtered.filter(p => setA.has(p.name) && setB.has(p.name))
+        } else if (types.length >= 3) {
+          // 3+ tipos: cualquiera que tenga al menos uno (unión)
+          const typeSets = await Promise.all(types.map(fetchTypePokemon))
+          const unionSet = new Set(typeSets.flatMap(s => [...s]))
+          filtered = filtered.filter(p => unionSet.has(p.name))
         }
 
         setTotal(filtered.length)
@@ -200,10 +211,10 @@ export function useAdvancedSearch({ query, generation, ability, type }) {
         setResults([])
       }
       setLoading(false)
-    }, query.trim() && !generation && !ability && !type ? 350 : 0)
+    }, query.trim() && !generation && !ability && types.length === 0 && !megaOnly ? 350 : 0)
 
     return () => clearTimeout(timer)
-  }, [query, generation, ability, type, hasFilter])
+  }, [query, generation, ability, typesKey, megaOnly, hasFilter])
 
   return { results, loading, total, hasFilter }
 }

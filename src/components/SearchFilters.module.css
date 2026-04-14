@@ -182,6 +182,10 @@
 }
 .activePill button:hover { color: #fff; }
 
+.megaPill {
+  color: var(--text);
+}
+
 .clearAll {
   align-self: flex-start;
   background: none;

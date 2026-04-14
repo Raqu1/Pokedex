@@ -16,17 +16,22 @@ export default function App() {
   const [page, setPage] = useState(0)
   const [query, setQuery] = useState('')
   const [generation, setGeneration] = useState(null)
-  const [type, setType] = useState('')
+  const [types, setTypes] = useState([])
+  const [megaOnly, setMegaOnly] = useState(false)
   const [ability, setAbility] = useState('')
   const [selected, setSelected] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  const toggleType = t => setTypes(prev =>
+    prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+  )
   const sentinelRef = useRef(null)
 
   const abilities = useAbilityList()
 
   const { results: filteredResults, loading: filterLoading, total: filterTotal, hasFilter } =
-    useAdvancedSearch({ query, generation, ability, type })
+    useAdvancedSearch({ query, generation, ability, types, megaOnly })
 
   const { pokemon: pagedPokemon, total, loading: pagedLoading } = usePokemonList(page * LIMIT)
 
@@ -36,7 +41,7 @@ export default function App() {
   const loading = hasFilter ? filterLoading : showAll ? allLoading : pagedLoading
   const displayList = hasFilter ? filteredResults : showAll ? allPokemon : pagedPokemon
   const totalPages = Math.ceil(total / LIMIT)
-  const activeFilterCount = [generation, type, ability].filter(Boolean).length
+  const activeFilterCount = [generation, megaOnly, ability].filter(Boolean).length + types.length
 
   useEffect(() => {
     if (!showAll || hasFilter || !sentinelRef.current) return
@@ -49,19 +54,18 @@ export default function App() {
   }, [showAll, hasFilter, hasMore, loadingMore, loadMore])
 
   const handleSetGeneration = gen => { setGeneration(gen); setPage(0) }
-  const handleSetType = t => { setType(t); setPage(0) }
+  const handleToggleType = t => { toggleType(t); setPage(0) }
+  const handleSetMegaOnly = v => { setMegaOnly(v); setPage(0) }
   const handleSetAbility = ab => { setAbility(ab); setPage(0) }
 
   return (
     <div className={styles.app}>
       <header className={styles.header}>
         <div className={styles.logo}>
-          <span className={styles.pokeball}>◉</span>
           <h1>Pokédex</h1>
         </div>
 
         <div className={styles.searchWrap}>
-          <span className={styles.searchIcon}>🔍</span>
           <input
             className={styles.search}
             type="text"
@@ -103,7 +107,8 @@ export default function App() {
       {filtersOpen && (
         <SearchFilters
           generation={generation} setGeneration={handleSetGeneration}
-          type={type} setType={handleSetType}
+          types={types} toggleType={handleToggleType}
+          megaOnly={megaOnly} setMegaOnly={handleSetMegaOnly}
           ability={ability} setAbility={handleSetAbility}
           abilities={abilities}
         />
@@ -123,7 +128,6 @@ export default function App() {
           </div>
         ) : !loading && displayList.length === 0 && hasFilter ? (
           <div className={styles.empty}>
-            <span>😔</span>
             <p>Sin resultados para esa búsqueda</p>
           </div>
         ) : (

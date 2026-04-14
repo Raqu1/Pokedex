@@ -18,7 +18,7 @@ const TYPE_LABELS = {
 
 const TYPES = Object.keys(TYPE_LABELS)
 
-export default function SearchFilters({ generation, setGeneration, type, setType, ability, setAbility, abilities }) {
+export default function SearchFilters({ generation, setGeneration, types, toggleType, megaOnly, setMegaOnly, ability, setAbility, abilities }) {
   const [abilityInput, setAbilityInput] = useState(ability)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const abilityWrapRef = useRef(null)
@@ -46,7 +46,7 @@ export default function SearchFilters({ generation, setGeneration, type, setType
 
   const clearAbility = () => { setAbility(''); setAbilityInput('') }
 
-  const activeCount = [generation, type, ability].filter(Boolean).length
+  const activeCount = [generation, megaOnly, ability].filter(Boolean).length + types.length
 
   return (
     <div className={styles.panel}>
@@ -73,17 +73,25 @@ export default function SearchFilters({ generation, setGeneration, type, setType
           {TYPES.map(t => (
             <button
               key={t}
-              className={`${styles.typePill} ${type === t ? styles.typePillActive : ''}`}
-              style={{
-                '--type-color': typeColors[t],
-                '--type-alpha': typeColors[t] + '33',
-              }}
-              onClick={() => setType(type === t ? '' : t)}
+              className={`${styles.typePill} ${types.includes(t) ? styles.typePillActive : ''}`}
+              style={{ '--type-color': typeColors[t], '--type-alpha': typeColors[t] + '33' }}
+              onClick={() => toggleType(t)}
             >
               {TYPE_LABELS[t]}
             </button>
           ))}
         </div>
+      </section>
+
+      {/* Mega */}
+      <section className={styles.section}>
+        <span className={styles.sectionLabel}>Forma</span>
+        <button
+          className={`${styles.pill} ${megaOnly ? styles.pillActive : ''} ${styles.megaPill}`}
+          onClick={() => setMegaOnly(!megaOnly)}
+        >
+          Mega evoluciones
+        </button>
       </section>
 
       {/* Ability */}
@@ -131,7 +139,7 @@ export default function SearchFilters({ generation, setGeneration, type, setType
       {activeCount > 0 && (
         <button
           className={styles.clearAll}
-          onClick={() => { setGeneration(null); setType(''); clearAbility() }}
+          onClick={() => { setGeneration(null); TYPES.forEach(t => types.includes(t) && toggleType(t)); setMegaOnly(false); clearAbility() }}
         >
           Limpiar filtros
         </button>
