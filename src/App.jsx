@@ -33,7 +33,7 @@ export default function App() {
   const abilities = useAbilityList()
 
   const { results: filteredResults, loading: filterLoading, total: filterTotal, hasFilter } =
-    useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page })
+    useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page, showAll })
 
   const { pokemon: pagedPokemon, total, loading: pagedLoading } = usePokemonList(page * LIMIT, sortBy)
 
@@ -123,17 +123,18 @@ export default function App() {
           </select>
         </div>
 
-        {!hasFilter && (
-          <button
-            className={`${styles.toggleBtn} ${showAll ? styles.toggleActive : ''}`}
-            onClick={() => { setShowAll(v => !v); setPage(0) }}
-          >
-            {showAll ? 'Paginado' : 'Todos'}
-            <span className={styles.toggleCount}>
-              {showAll ? `${allPokemon.length}/${allTotal}` : `${total}`}
-            </span>
-          </button>
-        )}
+        <button
+          className={`${styles.toggleBtn} ${showAll ? styles.toggleActive : ''}`}
+          onClick={() => { setShowAll(v => !v); setPage(0) }}
+        >
+          {showAll ? 'Paginado' : 'Todos'}
+          <span className={styles.toggleCount}>
+            {hasFilter
+              ? (showAll ? `${filteredResults.length}/${filterTotal}` : `${filterTotal}`)
+              : (showAll ? `${allPokemon.length}/${allTotal}` : `${total}`)
+            }
+          </span>
+        </button>
       </header>
 
       {filtersOpen && (
@@ -185,7 +186,7 @@ export default function App() {
           </div>
         )}
 
-        {(!showAll || hasFilter) && !loading && totalPages > 1 && (
+        {!showAll && !loading && totalPages > 1 && (
           <div className={styles.pagination}>
             <button className={styles.pageBtn} onClick={() => setPage(p => p - 1)} disabled={page === 0}>
               ← Anterior

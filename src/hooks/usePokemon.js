@@ -216,7 +216,7 @@ export function useAbilityList() {
 
 // ─── Advanced search (name partial match + generation + ability) ───────────────
 
-export function useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page = 0 }) {
+export function useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page = 0, showAll = false }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [total, setTotal] = useState(0)
@@ -293,7 +293,9 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
         }
 
         setTotal(filtered.length)
-        const top = filtered.slice(page * LIMIT, (page + 1) * LIMIT)
+        const top = showAll
+          ? filtered.slice(0, 200)
+          : filtered.slice(page * LIMIT, (page + 1) * LIMIT)
 
         if (top.length === 0) {
           setResults([])
@@ -321,7 +323,7 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
     }, query.trim() && !generation && !ability && types.length === 0 && !megaOnly ? 350 : 0)
 
     return () => clearTimeout(timer)
-  }, [query, generation, ability, typesKey, megaOnly, hasWeightFilter, weightRange, hasFilter, page])
+  }, [query, generation, ability, typesKey, megaOnly, hasWeightFilter, weightRange, hasFilter, page, showAll])
 
   return { results, loading, total, hasFilter }
 }
