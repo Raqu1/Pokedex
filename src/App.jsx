@@ -33,7 +33,7 @@ export default function App() {
   const abilities = useAbilityList()
 
   const { results: filteredResults, loading: filterLoading, total: filterTotal, hasFilter } =
-    useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange })
+    useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page })
 
   const { pokemon: pagedPokemon, total, loading: pagedLoading } = usePokemonList(page * LIMIT, sortBy)
 
@@ -55,7 +55,7 @@ export default function App() {
       default:          return list.sort((a, b) => a.id - b.id)
     }
   })() : displayList
-  const totalPages = Math.ceil(total / LIMIT)
+  const totalPages = Math.ceil((hasFilter ? filterTotal : total) / LIMIT)
   const activeFilterCount = [generation, megaOnly, ability].filter(Boolean).length + types.length + (weightRange[0] > 0 || weightRange[1] < 1000 ? 1 : 0)
 
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function App() {
           </div>
         )}
 
-        {!showAll && !hasFilter && !pagedLoading && (
+        {(!showAll || hasFilter) && !loading && totalPages > 1 && (
           <div className={styles.pagination}>
             <button className={styles.pageBtn} onClick={() => setPage(p => p - 1)} disabled={page === 0}>
               ← Anterior

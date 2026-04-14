@@ -216,7 +216,7 @@ export function useAbilityList() {
 
 // ─── Advanced search (name partial match + generation + ability) ───────────────
 
-export function useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange }) {
+export function useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page = 0 }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [total, setTotal] = useState(0)
@@ -245,11 +245,22 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
 
         if (generation) {
           const [min, max] = GENERATION_RANGES[generation]
+          const baseNameSet = new Set(allNames.filter(p => p.id < 10000).map(p => p.name))
+          const baseById = Object.fromEntries(allNames.filter(p => p.id < 10000).map(p => [p.name, p]))
+
           filtered = filtered.filter(p => {
             if (p.id > 10000) {
-              const baseName = p.name.split('-mega')[0]
-              const base = allNames.find(b => b.name === baseName)
-              return base ? base.id >= min && base.id <= max : false
+              // Busca el pokémon base quitando sufijos de forma de derecha a izquierda
+              // Ej: mr-mime-galar → mr-mime, charizard-mega-x → charizard
+              const parts = p.name.split('-')
+              for (let i = parts.length - 1; i >= 1; i--) {
+                const candidate = parts.slice(0, i).join('-')
+                if (baseNameSet.has(candidate)) {
+                  const base = baseById[candidate]
+                  return base.id >= min && base.id <= max
+                }
+              }
+              return false
             }
             return p.id >= min && p.id <= max
           })
@@ -281,8 +292,8 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
           filtered = filtered.filter(p => unionSet.has(p.name))
         }
 
-        const sampleSize = hasWeightFilter ? 200 : 40
-        const top = filtered.slice(0, sampleSize)
+        setTotal(filtered.length)
+        const top = filtered.slice(page * LIMIT, (page + 1) * LIMIT)
 
         if (top.length === 0) {
           setResults([])
@@ -302,7 +313,6 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
             })
           : details
 
-        setTotal(hasWeightFilter ? finalResults.length : filtered.length)
         setResults(finalResults)
       } catch {
         setResults([])
@@ -311,7 +321,7 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
     }, query.trim() && !generation && !ability && types.length === 0 && !megaOnly ? 350 : 0)
 
     return () => clearTimeout(timer)
-  }, [query, generation, ability, typesKey, megaOnly, hasWeightFilter, weightRange, hasFilter])
+  }, [query, generation, ability, typesKey, megaOnly, hasWeightFilter, weightRange, hasFilter, page])
 
   return { results, loading, total, hasFilter }
 }
