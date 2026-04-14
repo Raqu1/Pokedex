@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  usePokemonList,
   useInfinitePokemon,
   useAdvancedSearch,
   useAbilityList,
@@ -10,10 +9,7 @@ import PokemonModal from './components/PokemonModal'
 import SearchFilters from './components/SearchFilters'
 import styles from './App.module.css'
 
-const LIMIT = 20
-
 export default function App() {
-  const [page, setPage] = useState(0)
   const [query, setQuery] = useState('')
   const [generation, setGeneration] = useState(null)
   const [types, setTypes] = useState([])
@@ -21,32 +17,25 @@ export default function App() {
   const [ability, setAbility] = useState('')
   const [weightRange, setWeightRange] = useState([0, 1000])
   const [selected, setSelected] = useState(null)
-  const [showAll, setShowAll] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [sortBy, setSortBy] = useState('id-asc')
+  const sentinelRef = useRef(null)
 
   const toggleType = t => setTypes(prev =>
     prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
   )
-  const sentinelRef = useRef(null)
 
   const abilities = useAbilityList()
 
   const { results: filteredResults, loading: filterLoading, total: filterTotal, hasFilter } =
-    useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page, showAll })
+    useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page: 0, showAll: true })
 
-  const { pokemon: pagedPokemon, total, loading: pagedLoading } = usePokemonList(page * LIMIT, sortBy)
+  const { pokemon, loading: listLoading, loadingMore, hasMore, loadMore } = useInfinitePokemon(sortBy)
 
-  const { pokemon: allPokemon, total: allTotal, loading: allLoading, loadingMore, hasMore, loadMore } =
-    useInfinitePokemon(sortBy)
+  const loading = hasFilter ? filterLoading : listLoading
 
-  const loading = hasFilter ? filterLoading : showAll ? allLoading : pagedLoading
-  const displayList = hasFilter ? filteredResults : showAll ? allPokemon : pagedPokemon
-
-  // En modo filtro el orden se aplica client-side (ya tenemos todos los resultados).
-  // En modo paginado/infinito el orden viene pre-aplicado desde el hook.
-  const sortedList = hasFilter ? (() => {
-    const list = [...displayList]
+  const sortedFilterResults = hasFilter ? (() => {
+    const list = [...filteredResults]
     switch (sortBy) {
       case 'name-asc':  return list.sort((a, b) => a.name.localeCompare(b.name))
       case 'name-desc': return list.sort((a, b) => b.name.localeCompare(a.name))
@@ -54,24 +43,23 @@ export default function App() {
       case 'id-desc':   return list.sort((a, b) => b.id - a.id)
       default:          return list.sort((a, b) => a.id - b.id)
     }
-  })() : displayList
-  const totalPages = Math.ceil((hasFilter ? filterTotal : total) / LIMIT)
+  })() : []
+
+  const displayList = hasFilter ? sortedFilterResults : pokemon
+
   const activeFilterCount = [generation, megaOnly, ability].filter(Boolean).length + types.length + (weightRange[0] > 0 || weightRange[1] < 1000 ? 1 : 0)
 
+  // Infinite scroll sentinel
   useEffect(() => {
-    if (!showAll || hasFilter || !sentinelRef.current) return
-    const observer = new IntersectionObserver(
-      entries => { if (entries[0].isIntersecting && hasMore && !loadingMore) loadMore() },
-      { threshold: 0.1 }
-    )
-    observer.observe(sentinelRef.current)
-    return () => observer.disconnect()
-  }, [showAll, hasFilter, hasMore, loadingMore, loadMore])
-
-  const handleSetGeneration = gen => { setGeneration(gen); setPage(0) }
-  const handleToggleType = t => { toggleType(t); setPage(0) }
-  const handleSetMegaOnly = v => { setMegaOnly(v); setPage(0) }
-  const handleSetAbility = ab => { setAbility(ab); setPage(0) }
+    if (hasFilter) return
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) loadMore()
+    }, { rootMargin: '200px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [hasFilter, hasMore, loadingMore, loadMore])
 
   return (
     <div className={styles.app}>
@@ -86,7 +74,7 @@ export default function App() {
             type="text"
             placeholder="Buscar por nombre..."
             value={query}
-            onChange={e => { setQuery(e.target.value); setPage(0) }}
+            onChange={e => setQuery(e.target.value)}
           />
           {query && (
             <button className={styles.clearBtn} onClick={() => setQuery('')}>✕</button>
@@ -113,7 +101,7 @@ export default function App() {
           <select
             className={styles.sortSelect}
             value={sortBy}
-            onChange={e => { setSortBy(e.target.value); setPage(0) }}
+            onChange={e => setSortBy(e.target.value)}
           >
             <option value="id-asc">Gen I → IX</option>
             <option value="id-desc">Gen IX → I</option>
@@ -122,27 +110,14 @@ export default function App() {
             <option value="type">Por tipo</option>
           </select>
         </div>
-
-        <button
-          className={`${styles.toggleBtn} ${showAll ? styles.toggleActive : ''}`}
-          onClick={() => { setShowAll(v => !v); setPage(0) }}
-        >
-          {showAll ? 'Paginado' : 'Todos'}
-          <span className={styles.toggleCount}>
-            {hasFilter
-              ? (showAll ? `${filteredResults.length}/${filterTotal}` : `${filterTotal}`)
-              : (showAll ? `${allPokemon.length}/${allTotal}` : `${total}`)
-            }
-          </span>
-        </button>
       </header>
 
       {filtersOpen && (
         <SearchFilters
-          generation={generation} setGeneration={handleSetGeneration}
-          types={types} toggleType={handleToggleType}
-          megaOnly={megaOnly} setMegaOnly={handleSetMegaOnly}
-          ability={ability} setAbility={handleSetAbility}
+          generation={generation} setGeneration={setGeneration}
+          types={types} toggleType={toggleType}
+          megaOnly={megaOnly} setMegaOnly={setMegaOnly}
+          ability={ability} setAbility={setAbility}
           abilities={abilities}
           weightRange={weightRange} setWeightRange={setWeightRange}
         />
@@ -160,42 +135,27 @@ export default function App() {
             <div className={styles.loader} />
             <p>Cargando Pokémon...</p>
           </div>
-        ) : !loading && displayList.length === 0 && hasFilter ? (
+        ) : displayList.length === 0 && hasFilter ? (
           <div className={styles.empty}>
             <p>Sin resultados para esa búsqueda</p>
           </div>
         ) : (
           <div className={styles.grid}>
-            {sortedList.map(p => (
+            {displayList.map(p => (
               <PokemonCard key={p.id} pokemon={p} onClick={setSelected} />
             ))}
           </div>
         )}
 
-        {showAll && !hasFilter && !allLoading && (
-          <div ref={sentinelRef} className={styles.sentinel}>
+        {!hasFilter && (
+          <>
+            <div ref={sentinelRef} />
             {loadingMore && (
-              <div className={styles.loadMoreWrap}>
+              <div className={styles.loaderWrap}>
                 <div className={styles.loader} />
-                <p>Cargando más...</p>
               </div>
             )}
-            {!hasMore && allPokemon.length > 0 && (
-              <p className={styles.allLoaded}>Todos los {allTotal} Pokémon cargados</p>
-            )}
-          </div>
-        )}
-
-        {!showAll && !loading && totalPages > 1 && (
-          <div className={styles.pagination}>
-            <button className={styles.pageBtn} onClick={() => setPage(p => p - 1)} disabled={page === 0}>
-              ← Anterior
-            </button>
-            <span className={styles.pageInfo}>{page + 1} / {totalPages}</span>
-            <button className={styles.pageBtn} onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>
-              Siguiente →
-            </button>
-          </div>
+          </>
         )}
       </main>
 

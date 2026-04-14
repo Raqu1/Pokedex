@@ -292,30 +292,35 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
           filtered = filtered.filter(p => unionSet.has(p.name))
         }
 
-        setTotal(filtered.length)
-        const top = showAll
-          ? filtered.slice(0, 200)
-          : filtered.slice(page * LIMIT, (page + 1) * LIMIT)
+        if (!hasWeightFilter) {
+          // Sin filtro de peso: paginar sobre nombres directamente
+          setTotal(filtered.length)
+          const top = showAll
+            ? filtered.slice(0, 200)
+            : filtered.slice(page * LIMIT, (page + 1) * LIMIT)
 
-        if (top.length === 0) {
-          setResults([])
-          setTotal(0)
-          setLoading(false)
-          return
+          if (top.length === 0) { setResults([]); setTotal(0); setLoading(false); return }
+
+          const details = await Promise.all(
+            top.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
+          )
+          setResults(details)
+        } else {
+          // Con filtro de peso: fetchear todos (hasta 200), filtrar por peso, luego paginar
+          const sample = filtered.slice(0, 200)
+          if (sample.length === 0) { setResults([]); setTotal(0); setLoading(false); return }
+
+          const details = await Promise.all(
+            sample.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
+          )
+          const weightFiltered = details.filter(p => {
+            const kg = p.weight / 10
+            return kg >= weightRange[0] && kg <= weightRange[1]
+          })
+          setTotal(weightFiltered.length)
+          const page$ = showAll ? weightFiltered : weightFiltered.slice(page * LIMIT, (page + 1) * LIMIT)
+          setResults(page$)
         }
-
-        const details = await Promise.all(
-          top.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
-        )
-
-        const finalResults = hasWeightFilter
-          ? details.filter(p => {
-              const kg = p.weight / 10
-              return kg >= weightRange[0] && kg <= weightRange[1]
-            })
-          : details
-
-        setResults(finalResults)
       } catch {
         setResults([])
       }
