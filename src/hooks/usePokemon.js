@@ -24,6 +24,7 @@ const typeCache = new Map()
 let primaryTypeCache = null
 let primaryTypePromise = null
 const sortedNamesCache = new Map()
+const detailCache = new Map() // id -> full pokemon data
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison',
   'ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy']
@@ -235,6 +236,19 @@ export function useAbilityList() {
   return abilities
 }
 
+async function fetchDetailsInBatches(names) {
+  const toFetch = names.filter(p => !detailCache.has(p.id))
+  const BATCH = 80
+  for (let i = 0; i < toFetch.length; i += BATCH) {
+    const batch = toFetch.slice(i, i + BATCH)
+    const results = await Promise.all(
+      batch.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
+    )
+    results.forEach(p => detailCache.set(p.id, p))
+  }
+  return names.map(p => detailCache.get(p.id)).filter(Boolean)
+}
+
 // ─── Advanced search (name partial match + generation + ability) ───────────────
 
 export function useAdvancedSearch({ query, generation, ability, types, megaOnly, weightRange, page = 0, showAll = false }) {
@@ -317,23 +331,18 @@ export function useAdvancedSearch({ query, generation, ability, types, megaOnly,
           // Sin filtro de peso: paginar sobre nombres directamente
           setTotal(filtered.length)
           const top = showAll
-            ? filtered.slice(0, 200)
+            ? filtered
             : filtered.slice(page * LIMIT, (page + 1) * LIMIT)
 
           if (top.length === 0) { setResults([]); setTotal(0); setLoading(false); return }
 
-          const details = await Promise.all(
-            top.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
-          )
+          const details = await fetchDetailsInBatches(top)
           setResults(details)
         } else {
-          // Con filtro de peso: fetchear todos (hasta 200), filtrar por peso, luego paginar
-          const sample = filtered.slice(0, 200)
-          if (sample.length === 0) { setResults([]); setTotal(0); setLoading(false); return }
+          // Con filtro de peso: fetchear todos, filtrar por peso, luego paginar
+          if (filtered.length === 0) { setResults([]); setTotal(0); setLoading(false); return }
 
-          const details = await Promise.all(
-            sample.map(p => fetch(`${BASE_URL}/pokemon/${p.id}`).then(r => r.json()))
-          )
+          const details = await fetchDetailsInBatches(filtered)
           const weightFiltered = details.filter(p => {
             const kg = p.weight / 10
             return kg >= weightRange[0] && kg <= weightRange[1]
