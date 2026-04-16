@@ -26,8 +26,8 @@ let primaryTypePromise = null
 const sortedNamesCache = new Map()
 const detailCache = new Map() // id -> full pokemon data
 
-const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison',
-  'ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy']
+const ALL_TYPES = ['normal', 'fire', 'water', 'electric', 'grass', 'ice', 'fighting', 'poison',
+  'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy']
 
 function fetchAllNames() {
   if (nameCache) return Promise.resolve(nameCache)
@@ -114,9 +114,9 @@ async function fetchSortedNames(sortBy) {
   const allNames = await fetchAllNames()
   let sorted
   switch (sortBy) {
-    case 'name-asc':  sorted = [...allNames].sort((a, b) => a.name.localeCompare(b.name)); break
+    case 'name-asc': sorted = [...allNames].sort((a, b) => a.name.localeCompare(b.name)); break
     case 'name-desc': sorted = [...allNames].sort((a, b) => b.name.localeCompare(a.name)); break
-    case 'id-desc':   sorted = [...allNames].sort((a, b) => b.id - a.id); break
+    case 'id-desc': sorted = [...allNames].sort((a, b) => b.id - a.id); break
     case 'type': {
       const typeMap = await fetchPrimaryTypeMap()
       sorted = [...allNames].sort((a, b) => {
